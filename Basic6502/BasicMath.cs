@@ -21,7 +21,7 @@ public static class BasicMath
         if (string.IsNullOrEmpty(expression))
             return 0;
             
-        // Handle parentheses first
+        // Handle parentheses, but skip function calls
         while (expression.Contains('('))
         {
             int lastOpen = expression.LastIndexOf('(');
@@ -29,11 +29,39 @@ public static class BasicMath
             
             if (firstClose == -1)
                 throw new BasicException("SYNTAX");
-                
-            string subExpr = expression.Substring(lastOpen + 1, firstClose - lastOpen - 1);
-            double subResult = EvaluateExpression(subExpr, variables);
             
-            expression = expression.Substring(0, lastOpen) + subResult.ToString("G17") + expression.Substring(firstClose + 1);
+            // Check if this is part of a function call
+            bool isFunction = false;
+            if (lastOpen > 0)
+            {
+                // Look backwards to see if there's a function name
+                int nameStart = lastOpen - 1;
+                while (nameStart >= 0 && (char.IsLetterOrDigit(expression[nameStart]) || expression[nameStart] == '$'))
+                    nameStart--;
+                nameStart++;
+                
+                if (nameStart < lastOpen)
+                {
+                    var potentialFunction = expression.Substring(nameStart, lastOpen - nameStart);
+                    var functions = new[] { "ABS", "INT", "SGN", "SQR", "RND", "SIN", "COS", "TAN", "LOG", "EXP", "ATN", "LEN", "ASC", "VAL", "CHR$", "LEFT$", "RIGHT$", "MID$", "STR$" };
+                    isFunction = functions.Contains(potentialFunction);
+                }
+            }
+            
+            if (isFunction)
+            {
+                // This is a function call, don't process the parentheses here
+                // Let the EvaluateSimpleExpression handle it
+                break;
+            }
+            else
+            {
+                // Regular parentheses - evaluate the expression inside
+                string subExpr = expression.Substring(lastOpen + 1, firstClose - lastOpen - 1);
+                double subResult = EvaluateExpression(subExpr, variables);
+                
+                expression = expression.Substring(0, lastOpen) + subResult.ToString("G17") + expression.Substring(firstClose + 1);
+            }
         }
         
         return EvaluateSimpleExpression(expression, variables);

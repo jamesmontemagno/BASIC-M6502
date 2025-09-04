@@ -712,8 +712,45 @@ public class BasicInterpreter
         if (tokens.Count == 0)
             return 0;
             
-        var expression = string.Join("", tokens);
+        // Rebuild the expression more carefully, preserving function calls
+        var expression = ReconstructExpression(tokens);
         return BasicMath.EvaluateExpression(expression, _variables);
+    }
+    
+    private string ReconstructExpression(List<string> tokens)
+    {
+        var result = new StringBuilder();
+        
+        for (int i = 0; i < tokens.Count; i++)
+        {
+            var token = tokens[i];
+            
+            // Don't add spaces around parentheses or operators
+            if (token == "(" || token == ")" || token == "+" || token == "-" || 
+                token == "*" || token == "/" || token == "^" || token == "=" ||
+                token == "<" || token == ">" || token == "<=" || token == ">=" || token == "<>")
+            {
+                result.Append(token);
+            }
+            else if (i > 0 && (tokens[i-1] == "(" || result.Length == 0))
+            {
+                // Don't add space after open parenthesis or at start
+                result.Append(token);
+            }
+            else if (i < tokens.Count - 1 && tokens[i+1] == "(")
+            {
+                // Don't add space before open parenthesis (function calls)
+                result.Append(token);
+            }
+            else
+            {
+                if (result.Length > 0)
+                    result.Append(" ");
+                result.Append(token);
+            }
+        }
+        
+        return result.ToString();
     }
     
     private bool EvaluateCondition(List<string> tokens)

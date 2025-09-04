@@ -73,8 +73,13 @@ public static class BasicMath
             return HandleFunction("LOG", expression, variables);
         if (expression.StartsWith("EXP("))
             return HandleFunction("EXP", expression, variables);
-        if (expression.StartsWith("ATN("))
-            return HandleFunction("ATN", expression, variables);
+        // Check for string functions that return numbers
+        if (expression.StartsWith("LEN("))
+            return HandleStringLengthFunction("LEN", expression, variables);
+        if (expression.StartsWith("ASC("))
+            return HandleStringLengthFunction("ASC", expression, variables);
+        if (expression.StartsWith("VAL("))
+            return HandleStringLengthFunction("VAL", expression, variables);
         
         // Find the lowest precedence operator (rightmost)
         for (int precedence = 1; precedence <= 5; precedence++)
@@ -113,7 +118,17 @@ public static class BasicMath
             return value;
             
         if (variables.ContainsKey(expression))
-            return variables[expression].Value;
+        {
+            var variable = variables[expression];
+            if (variable.IsString)
+            {
+                // Try to parse string as number
+                if (double.TryParse(variable.StringValue, out double stringValue))
+                    return stringValue;
+                return 0; // Non-numeric string evaluates to 0
+            }
+            return variable.Value;
+        }
             
         // Try to parse as a variable name (might be undefined)
         if (IsValidVariableName(expression))
@@ -164,6 +179,10 @@ public static class BasicMath
         };
     }
     
+    /// <summary>
+    /// Formats a number for output similar to the original BASIC FOUT routine.
+    /// </summary>
+    
     private static bool IsValidVariableName(string name)
     {
         if (string.IsNullOrEmpty(name))
@@ -181,9 +200,51 @@ public static class BasicMath
         return true;
     }
     
-    /// <summary>
-    /// Formats a number for output similar to the original BASIC FOUT routine.
-    /// </summary>
+    private static double HandleStringLengthFunction(string functionName, string expression, Dictionary<string, BasicVariable> variables)
+    {
+        int openParen = expression.IndexOf('(');
+        int closeParen = expression.LastIndexOf(')');
+        
+        if (openParen == -1 || closeParen == -1 || closeParen <= openParen)
+            throw new BasicException("SYNTAX");
+            
+        string argument = expression.Substring(openParen + 1, closeParen - openParen - 1);
+        
+        return functionName switch
+        {
+            "LEN" => BasicString.GetLength(BasicString.EvaluateStringExpression(argument, variables)),
+            "ASC" => BasicString.GetAscii(BasicString.EvaluateStringExpression(argument, variables)),
+            "VAL" => EvaluateVal(argument, variables),
+            _ => throw new BasicException("SYNTAX")
+        };
+    }
+    
+    private static double EvaluateVal(string argument, Dictionary<string, BasicVariable> variables)
+    {
+        var str = BasicString.EvaluateStringExpression(argument, variables);
+        
+        // Parse number from beginning of string
+        var trimmed = str.TrimStart();
+        var numberStr = "";
+        
+        for (int i = 0; i < trimmed.Length; i++)
+        {
+            char c = trimmed[i];
+            if (char.IsDigit(c) || c == '.' || c == '-' || c == '+' || c == 'E' || c == 'e')
+            {
+                numberStr += c;
+            }
+            else
+            {
+                break;
+            }
+        }
+        
+        if (double.TryParse(numberStr, out double result))
+            return result;
+            
+        return 0;
+    }
     public static string FormatNumber(double value)
     {
         if (double.IsNaN(value) || double.IsInfinity(value))

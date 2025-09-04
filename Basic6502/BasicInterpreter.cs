@@ -378,10 +378,25 @@ public class BasicInterpreter
                 
                 if (exprTokens.Count > 0)
                 {
-                    var value = EvaluateExpression(exprTokens);
-                    var formatted = BasicMath.FormatNumber(value);
-                    Console.Write(formatted);
-                    _printPosition += formatted.Length;
+                    var exprStr = string.Join("", exprTokens);
+                    
+                    // Check if it's a string expression
+                    if (BasicString.IsStringExpression(exprStr, _variables) || 
+                        exprStr.Contains("CHR$(") || exprStr.Contains("LEFT$(") || 
+                        exprStr.Contains("RIGHT$(") || exprStr.Contains("MID$(") || 
+                        exprStr.Contains("STR$("))
+                    {
+                        var strValue = BasicString.EvaluateStringExpression(exprStr, _variables);
+                        Console.Write(strValue);
+                        _printPosition += strValue.Length;
+                    }
+                    else
+                    {
+                        var value = EvaluateExpression(exprTokens);
+                        var formatted = BasicMath.FormatNumber(value);
+                        Console.Write(formatted);
+                        _printPosition += formatted.Length;
+                    }
                     suppressNewline = false;
                 }
             }
@@ -406,9 +421,24 @@ public class BasicInterpreter
             throw new BasicException("SYNTAX");
             
         var varName = tokens[1];
-        var value = EvaluateExpression(tokens.Skip(3).ToList());
+        var exprTokens = tokens.Skip(3).ToList();
+        var exprStr = string.Join("", exprTokens);
         
-        _variables[varName] = new BasicVariable { Value = value };
+        if (varName.EndsWith("$") || BasicString.IsStringExpression(exprStr, _variables) ||
+            exprStr.Contains("CHR$(") || exprStr.Contains("LEFT$(") || 
+            exprStr.Contains("RIGHT$(") || exprStr.Contains("MID$(") || 
+            exprStr.Contains("STR$("))
+        {
+            // String assignment
+            var stringValue = BasicString.EvaluateStringExpression(exprStr, _variables);
+            _variables[varName] = new BasicVariable { StringValue = stringValue, IsString = true };
+        }
+        else
+        {
+            // Numeric assignment
+            var value = EvaluateExpression(exprTokens);
+            _variables[varName] = new BasicVariable { Value = value };
+        }
     }
     
     private void ExecuteAssignment(List<string> tokens)
@@ -417,9 +447,24 @@ public class BasicInterpreter
             throw new BasicException("SYNTAX");
             
         var varName = tokens[0];
-        var value = EvaluateExpression(tokens.Skip(2).ToList());
+        var exprTokens = tokens.Skip(2).ToList();
+        var exprStr = string.Join("", exprTokens);
         
-        _variables[varName] = new BasicVariable { Value = value };
+        if (varName.EndsWith("$") || BasicString.IsStringExpression(exprStr, _variables) ||
+            exprStr.Contains("CHR$(") || exprStr.Contains("LEFT$(") || 
+            exprStr.Contains("RIGHT$(") || exprStr.Contains("MID$(") || 
+            exprStr.Contains("STR$("))
+        {
+            // String assignment
+            var stringValue = BasicString.EvaluateStringExpression(exprStr, _variables);
+            _variables[varName] = new BasicVariable { StringValue = stringValue, IsString = true };
+        }
+        else
+        {
+            // Numeric assignment
+            var value = EvaluateExpression(exprTokens);
+            _variables[varName] = new BasicVariable { Value = value };
+        }
     }
     
     private void ExecuteIf(List<string> tokens)
